@@ -53,6 +53,7 @@ A production-grade Kotlin library that orchestrates DAGs of typed tasks with Pos
 | R22 | Synchronous and asynchronous triggering: `workflow.run(input)` blocks until completion, `workflow.runNoWait(input)` returns immediately | Must-have |
 | R23 | Conditional branching: workflows diverge into mutually exclusive execution paths based on step output; only the matching branch executes, the other is skipped with cascade | Must-have |
 | R24 | Parallel execution (fan-out): multiple steps depending on the same parent execute concurrently | Must-have |
+| R25 | Web dashboard (optional module) for tracking workflow runs, task states, DAG visualisation, retry history, and timelines. Separate dependency; core library has no HTTP dependency. | Must-have |
 
 ---
 
@@ -264,6 +265,7 @@ Consumer code
 | **A20** | **PostgreSQL schema**: DDL migration for tables: workflow_runs, tasks (composite PK workflow_run_id + task_name, with parent_names array and pending_parent_count), ready_queue (BIGINT id computed by block algorithm, unique index on workflow_run_id + task_name), durable_timers, task_events, tenant_groups, task_addr_ptrs (singleton). Partial indexes on active states. | |
 | **A21** | **Graceful shutdown**: DagTaskEngine.stop(timeout) sequence: set running=false → scheduler.shutdown() (no more polling) → workerPool.shutdown() + awaitTermination(timeout) (drain in-flight) → workerPool.shutdownNow() if timeout exceeded (interrupt) → leaderElection.release(). Interrupted tasks leave RUNNING status; housekeeper on another pod detects and re-enqueues within 2 minutes. | |
 | **A22** | **Test harness**: TestEngineBuilder that wires all in-memory adapters + FakeClock + ManualScheduler, provides helpers: runCycle() (one poll-execute cycle), runUntilComplete(workflowRunId) (loop until terminal or blocked on sleep), advanceTime(duration) (advance FakeClock + fire expired timers + execute ready tasks). Deterministic, single-threaded test execution. | |
+| **A23** | **Web dashboard**: optional separate module (`kotlin-durable-dashboard`). Embedded HTTP server serving a web UI for workflow run tracking, task state inspection, DAG visualisation, retry history, and timelines. Reads from existing repository ports. Core library has no HTTP dependency. | ⚠️ |
 
 ---
 
@@ -296,12 +298,14 @@ Consumer code
 | R22 | Synchronous and asynchronous triggering | Must-have | ✅ |
 | R23 | Conditional branching: mutually exclusive paths based on step output, with cascade | Must-have | ✅ |
 | R24 | Parallel execution (fan-out): multiple steps with same parent run concurrently | Must-have | ✅ |
+| R25 | Web dashboard (optional module) for tracking workflow runs, task states, DAG visualisation, retry history, and timelines | Must-have | ❌ |
 
 **Notes:**
 
 - R23 (branching) is implemented via A15 (skipIf + cascade). Both branches exist as steps in the DAG with complementary skipIf predicates on the decision point step. The cascade behaviour (SKIPPED parent → SKIPPED children) ensures the entire non-matching branch is skipped. No separate branching primitive is needed.
 - R24 (parallel fan-out) is inherent in the DAG model (A4). Multiple steps listing the same parent as a dependency are enqueued simultaneously when that parent completes. Each is claimed independently by the worker pool.
 - R15 (fan-in) is handled by A4 (DagResolver): pending_parent_count is decremented atomically; only the decrement that reaches 0 enqueues the child. PostgreSQL row-level serialisation prevents double-enqueue. Defence-in-depth: unique index on ready_queue(workflow_run_id, task_name).
+- R25 fails: A23 (web dashboard) is flagged ⚠️. The mechanism is described at a high level but not yet concretely shaped. Needs a spike to determine HTTP server choice, rendering approach, and dashboard feature set before R25 can pass.
 
 ---
 
