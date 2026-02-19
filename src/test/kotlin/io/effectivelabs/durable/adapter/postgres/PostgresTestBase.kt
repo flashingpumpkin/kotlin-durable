@@ -50,9 +50,9 @@ abstract class PostgresTestBase {
     fun cleanTables() {
         transaction {
             SchemaUtils.drop(
+                timersTable,
                 taskEventsTable,
                 readyQueueTable,
-                timersTable,
                 tasksTable,
                 workflowRunsTable,
             )
