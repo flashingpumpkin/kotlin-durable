@@ -4,7 +4,7 @@ import io.effectivelabs.durable.adapter.postgres.table.ReadyQueueTable
 import io.effectivelabs.durable.domain.model.QueueItem
 import io.effectivelabs.durable.domain.port.ReadyQueueRepository
 import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.Instant
 
@@ -14,23 +14,17 @@ class ExposedReadyQueueRepository(
 ) : ReadyQueueRepository {
 
     override fun enqueue(item: QueueItem) {
-        transaction(db) {
-            table.insert {
-                it[workflowRunId] = item.workflowRunId
-                it[taskName] = item.taskName
-                it[enqueuedAt] = item.enqueuedAt
-            }
-        }
+        enqueueAll(listOf(item))
     }
 
     override fun enqueueAll(items: List<QueueItem>) {
+        if (items.isEmpty()) return
         transaction(db) {
-            for (item in items) {
-                table.insert {
-                    it[workflowRunId] = item.workflowRunId
-                    it[taskName] = item.taskName
-                    it[enqueuedAt] = item.enqueuedAt
-                }
+            val t = table
+            t.batchInsert(items) { item ->
+                this[t.workflowRunId] = item.workflowRunId
+                this[t.taskName] = item.taskName
+                this[t.enqueuedAt] = item.enqueuedAt
             }
         }
     }
@@ -53,22 +47,23 @@ class ExposedReadyQueueRepository(
                 RETURNING claimed.id, claimed.workflow_run_id, claimed.task_name, claimed.enqueued_at
             """.trimIndent()
 
-            val stmt = conn.prepareStatement(sql)
-            stmt.setInt(1, batchSize)
-            val rs = stmt.executeQuery()
-
-            val items = mutableListOf<QueueItem>()
-            while (rs.next()) {
-                items.add(
-                    QueueItem(
-                        id = rs.getLong("id"),
-                        workflowRunId = java.util.UUID.fromString(rs.getString("workflow_run_id")),
-                        taskName = rs.getString("task_name"),
-                        enqueuedAt = rs.getTimestamp("enqueued_at").toInstant(),
-                    )
-                )
+            conn.prepareStatement(sql).use { stmt ->
+                stmt.setInt(1, batchSize)
+                stmt.executeQuery().use { rs ->
+                    val items = mutableListOf<QueueItem>()
+                    while (rs.next()) {
+                        items.add(
+                            QueueItem(
+                                id = rs.getLong("id"),
+                                workflowRunId = java.util.UUID.fromString(rs.getString("workflow_run_id")),
+                                taskName = rs.getString("task_name"),
+                                enqueuedAt = rs.getTimestamp("enqueued_at").toInstant(),
+                            )
+                        )
+                    }
+                    items
+                }
             }
-            items
         }
     }
 }

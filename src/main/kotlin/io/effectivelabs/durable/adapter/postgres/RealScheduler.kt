@@ -23,6 +23,8 @@ class RealScheduler : Scheduler {
 
     override fun shutdown() {
         executor.shutdown()
-        executor.awaitTermination(5, TimeUnit.SECONDS)
+        if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+            executor.shutdownNow()
+        }
     }
 }

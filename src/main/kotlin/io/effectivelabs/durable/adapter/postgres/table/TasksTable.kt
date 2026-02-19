@@ -20,4 +20,8 @@ class TasksTable(
     val completedAt = timestamp("completed_at").nullable()
 
     override val primaryKey = PrimaryKey(workflowRunId, taskName)
+
+    init {
+        index(false, workflowRunId, status)
+    }
 }

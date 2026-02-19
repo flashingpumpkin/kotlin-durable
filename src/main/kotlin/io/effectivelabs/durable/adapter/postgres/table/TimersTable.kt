@@ -11,4 +11,8 @@ class TimersTable : Table("durable_timers") {
     val fired = bool("fired").default(false)
 
     override val primaryKey = PrimaryKey(workflowRunId, taskName)
+
+    init {
+        index(false, wakeAt, fired)
+    }
 }

@@ -1,11 +1,16 @@
 package io.effectivelabs.durable.adapter.postgres
 
 import io.effectivelabs.durable.domain.port.IdGenerator
-import java.util.concurrent.atomic.AtomicLong
+import java.security.SecureRandom
+import kotlin.math.abs
 
 class ExposedIdGenerator : IdGenerator {
 
-    private val counter = AtomicLong(0)
+    private val random = SecureRandom()
 
-    override fun nextQueueId(): Long = counter.incrementAndGet()
+    override fun nextQueueId(): Long {
+        var value = random.nextLong()
+        if (value == Long.MIN_VALUE) value = 0L
+        return abs(value)
+    }
 }

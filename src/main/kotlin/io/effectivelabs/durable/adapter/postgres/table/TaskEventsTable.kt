@@ -12,4 +12,8 @@ class TaskEventsTable : Table("task_events") {
     val timestamp = timestamp("timestamp")
 
     override val primaryKey = PrimaryKey(id)
+
+    init {
+        index(false, workflowRunId)
+    }
 }

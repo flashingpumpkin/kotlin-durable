@@ -6,6 +6,7 @@ import io.effectivelabs.durable.domain.model.TaskState
 import io.effectivelabs.durable.domain.port.TaskRepository
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.minus
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.selectAll
@@ -19,6 +20,9 @@ class ExposedTaskRepository(
 ) : TaskRepository {
 
     override fun createAll(records: List<TaskRecord>) {
+        records.forEach { record ->
+            require(',' !in record.taskName) { "Task name must not contain commas: '${record.taskName}'" }
+        }
         transaction(db) {
             val t = table
             t.batchInsert(records) { record ->
@@ -75,7 +79,8 @@ class ExposedTaskRepository(
 
     override fun decrementPendingParents(workflowRunId: UUID, completedParentName: String): List<TaskRecord> {
         return transaction(db) {
-            // Find all PENDING children that have completedParentName as a parent
+            // Find PENDING tasks that list completedParentName as a parent (in-memory filter
+            // ensures correctness with comma-separated parent_names)
             val candidates = table.selectAll()
                 .where {
                     (table.workflowRunId eq workflowRunId) and
@@ -84,23 +89,37 @@ class ExposedTaskRepository(
                 .map { it.toTaskRecord() }
                 .filter { completedParentName in it.parentNames }
 
+            if (candidates.isEmpty()) return@transaction emptyList()
+
             val readyTasks = mutableListOf<TaskRecord>()
 
             for (task in candidates) {
-                val newCount = task.pendingParentCount - 1
-                val newStatus = if (newCount == 0) TaskState.QUEUED else TaskState.PENDING
+                // Atomically decrement using a SQL expression to avoid read-modify-write race
+                table.update({
+                    (table.workflowRunId eq workflowRunId) and (table.taskName eq task.taskName)
+                }) {
+                    it[pendingParentCount] = table.pendingParentCount - 1
+                }
 
+                // If the task now has no remaining parents, mark it QUEUED
                 table.update({
                     (table.workflowRunId eq workflowRunId) and
-                        (table.taskName eq task.taskName)
+                        (table.taskName eq task.taskName) and
+                        (table.pendingParentCount eq 0)
                 }) {
-                    it[pendingParentCount] = newCount
-                    it[status] = newStatus.name
+                    it[status] = TaskState.QUEUED.name
                 }
 
-                if (newCount == 0) {
-                    readyTasks.add(task.copy(pendingParentCount = newCount, status = newStatus))
-                }
+                val updated = table.selectAll()
+                    .where {
+                        (table.workflowRunId eq workflowRunId) and
+                            (table.taskName eq task.taskName) and
+                            (table.status eq TaskState.QUEUED.name)
+                    }
+                    .map { it.toTaskRecord() }
+                    .singleOrNull()
+
+                if (updated != null) readyTasks.add(updated)
             }
 
             readyTasks
