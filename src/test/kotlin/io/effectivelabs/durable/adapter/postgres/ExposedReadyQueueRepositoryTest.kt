@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 
 class ExposedReadyQueueRepositoryTest : PostgresTestBase() {
 
-    private val repo = ExposedReadyQueueRepository()
+    private val repo = ExposedReadyQueueRepository(db)
 
     @BeforeTest
     fun setUp() {

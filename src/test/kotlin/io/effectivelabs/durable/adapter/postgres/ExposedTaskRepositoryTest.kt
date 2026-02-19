@@ -14,8 +14,8 @@ import kotlin.test.assertNull
 
 class ExposedTaskRepositoryTest : PostgresTestBase() {
 
-    private val workflowRunRepo = ExposedWorkflowRunRepository()
-    private val repo = ExposedTaskRepository()
+    private val workflowRunRepo = ExposedWorkflowRunRepository(db)
+    private val repo = ExposedTaskRepository(db)
 
     private lateinit var workflowRunId: UUID
 

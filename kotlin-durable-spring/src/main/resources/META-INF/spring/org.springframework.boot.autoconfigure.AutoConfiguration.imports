@@ -1,0 +1,2 @@
+io.effectivelabs.durable.spring.DurableExposedAutoConfiguration
+io.effectivelabs.durable.spring.DurableEngineAutoConfiguration

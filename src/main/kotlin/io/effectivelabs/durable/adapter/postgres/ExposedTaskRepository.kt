@@ -4,6 +4,7 @@ import io.effectivelabs.durable.adapter.postgres.table.TasksTable
 import io.effectivelabs.durable.domain.model.TaskRecord
 import io.effectivelabs.durable.domain.model.TaskState
 import io.effectivelabs.durable.domain.port.TaskRepository
+import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
@@ -12,10 +13,10 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import java.util.UUID
 
-class ExposedTaskRepository : TaskRepository {
+class ExposedTaskRepository(private val db: Database) : TaskRepository {
 
     override fun createAll(records: List<TaskRecord>) {
-        transaction {
+        transaction(db) {
             TasksTable.batchInsert(records) { record ->
                 this[TasksTable.workflowRunId] = record.workflowRunId
                 this[TasksTable.taskName] = record.taskName
@@ -34,7 +35,7 @@ class ExposedTaskRepository : TaskRepository {
     }
 
     override fun findByName(workflowRunId: UUID, taskName: String): TaskRecord? {
-        return transaction {
+        return transaction(db) {
             TasksTable.selectAll()
                 .where { (TasksTable.workflowRunId eq workflowRunId) and (TasksTable.taskName eq taskName) }
                 .map { it.toTaskRecord() }
@@ -43,7 +44,7 @@ class ExposedTaskRepository : TaskRepository {
     }
 
     override fun findAllByWorkflowRunId(workflowRunId: UUID): List<TaskRecord> {
-        return transaction {
+        return transaction(db) {
             TasksTable.selectAll()
                 .where { TasksTable.workflowRunId eq workflowRunId }
                 .map { it.toTaskRecord() }
@@ -57,7 +58,7 @@ class ExposedTaskRepository : TaskRepository {
         output: Any?,
         error: String?,
     ) {
-        transaction {
+        transaction(db) {
             TasksTable.update({
                 (TasksTable.workflowRunId eq workflowRunId) and (TasksTable.taskName eq taskName)
             }) {
@@ -69,7 +70,7 @@ class ExposedTaskRepository : TaskRepository {
     }
 
     override fun decrementPendingParents(workflowRunId: UUID, completedParentName: String): List<TaskRecord> {
-        return transaction {
+        return transaction(db) {
             // Find all PENDING children that have completedParentName as a parent
             val candidates = TasksTable.selectAll()
                 .where {

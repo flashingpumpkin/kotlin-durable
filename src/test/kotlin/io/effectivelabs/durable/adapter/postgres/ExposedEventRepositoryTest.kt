@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 
 class ExposedEventRepositoryTest : PostgresTestBase() {
 
-    private val repo = ExposedEventRepository()
+    private val repo = ExposedEventRepository(db)
 
     @BeforeTest
     fun setUp() {

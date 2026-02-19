@@ -3,14 +3,15 @@ package io.effectivelabs.durable.adapter.postgres
 import io.effectivelabs.durable.adapter.postgres.table.ReadyQueueTable
 import io.effectivelabs.durable.domain.model.QueueItem
 import io.effectivelabs.durable.domain.port.ReadyQueueRepository
+import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.Instant
 
-class ExposedReadyQueueRepository : ReadyQueueRepository {
+class ExposedReadyQueueRepository(private val db: Database) : ReadyQueueRepository {
 
     override fun enqueue(item: QueueItem) {
-        transaction {
+        transaction(db) {
             ReadyQueueTable.insert {
                 it[workflowRunId] = item.workflowRunId
                 it[taskName] = item.taskName
@@ -20,7 +21,7 @@ class ExposedReadyQueueRepository : ReadyQueueRepository {
     }
 
     override fun enqueueAll(items: List<QueueItem>) {
-        transaction {
+        transaction(db) {
             for (item in items) {
                 ReadyQueueTable.insert {
                     it[workflowRunId] = item.workflowRunId
@@ -32,7 +33,7 @@ class ExposedReadyQueueRepository : ReadyQueueRepository {
     }
 
     override fun claim(batchSize: Int): List<QueueItem> {
-        return transaction {
+        return transaction(db) {
             // Use raw SQL for SELECT FOR UPDATE SKIP LOCKED + DELETE
             val conn = this.connection.connection as java.sql.Connection
             val sql = """

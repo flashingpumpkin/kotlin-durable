@@ -5,17 +5,34 @@ plugins {
 group = "io.effectivelabs"
 version = "0.0.1"
 
-repositories {
-    mavenCentral()
+allprojects {
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply(plugin = "org.jetbrains.kotlin.jvm")
+
+    group = rootProject.group
+    version = rootProject.version
+
+    kotlin {
+        jvmToolchain(21)
+    }
+
+    tasks.withType<Test> {
+        useJUnitPlatform()
+    }
 }
 
 val exposedVersion = "0.58.0"
 val testcontainersVersion = "1.20.4"
 
 dependencies {
-    // Exposed ORM
-    implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
-    implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
+    // Exposed ORM (api: Database is part of repository public API)
+    api("org.jetbrains.exposed:exposed-core:$exposedVersion")
+    api("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
     implementation("org.jetbrains.exposed:exposed-java-time:$exposedVersion")
 
     // PostgreSQL JDBC driver

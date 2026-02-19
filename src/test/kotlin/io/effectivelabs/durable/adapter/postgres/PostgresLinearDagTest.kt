@@ -16,10 +16,10 @@ class PostgresLinearDagTest : PostgresTestBase() {
 
     private fun buildEngine(): DagTaskEngine {
         return DagTaskEngine(
-            workflowRunRepository = ExposedWorkflowRunRepository(),
-            taskRepository = ExposedTaskRepository(),
-            readyQueueRepository = ExposedReadyQueueRepository(),
-            eventRepository = ExposedEventRepository(),
+            workflowRunRepository = ExposedWorkflowRunRepository(db),
+            taskRepository = ExposedTaskRepository(db),
+            readyQueueRepository = ExposedReadyQueueRepository(db),
+            eventRepository = ExposedEventRepository(db),
             workflowRegistry = InMemoryWorkflowRegistry(),
             clock = SystemClock(),
             scheduler = RealScheduler(),

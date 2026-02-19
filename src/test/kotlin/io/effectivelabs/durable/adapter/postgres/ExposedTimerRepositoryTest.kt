@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 
 class ExposedTimerRepositoryTest : PostgresTestBase() {
 
-    private val repo = ExposedTimerRepository()
+    private val repo = ExposedTimerRepository(db)
 
     @BeforeTest
     fun setUp() {

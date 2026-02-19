@@ -12,7 +12,7 @@ import kotlin.test.assertNull
 
 class ExposedWorkflowRunRepositoryTest : PostgresTestBase() {
 
-    private val repo = ExposedWorkflowRunRepository()
+    private val repo = ExposedWorkflowRunRepository(db)
 
     @BeforeTest
     fun setUp() {

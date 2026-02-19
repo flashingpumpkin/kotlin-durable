@@ -4,15 +4,16 @@ import io.effectivelabs.durable.adapter.postgres.table.TaskEventsTable
 import io.effectivelabs.durable.domain.model.TaskEvent
 import io.effectivelabs.durable.domain.model.TaskEventType
 import io.effectivelabs.durable.domain.port.EventRepository
+import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.UUID
 
-class ExposedEventRepository : EventRepository {
+class ExposedEventRepository(private val db: Database) : EventRepository {
 
     override fun append(event: TaskEvent) {
-        transaction {
+        transaction(db) {
             TaskEventsTable.insert {
                 it[workflowRunId] = event.workflowRunId
                 it[taskName] = event.taskName
@@ -24,7 +25,7 @@ class ExposedEventRepository : EventRepository {
     }
 
     override fun findByWorkflowRunId(workflowRunId: UUID): List<TaskEvent> {
-        return transaction {
+        return transaction(db) {
             TaskEventsTable.selectAll()
                 .where { TaskEventsTable.workflowRunId eq workflowRunId }
                 .orderBy(TaskEventsTable.id)

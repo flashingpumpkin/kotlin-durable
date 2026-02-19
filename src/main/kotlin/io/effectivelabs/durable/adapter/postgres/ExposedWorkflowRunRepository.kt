@@ -4,6 +4,7 @@ import io.effectivelabs.durable.adapter.postgres.table.WorkflowRunsTable
 import io.effectivelabs.durable.domain.model.RunStatus
 import io.effectivelabs.durable.domain.model.WorkflowRunRecord
 import io.effectivelabs.durable.domain.port.WorkflowRunRepository
+import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
@@ -11,10 +12,10 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import java.util.UUID
 
-class ExposedWorkflowRunRepository : WorkflowRunRepository {
+class ExposedWorkflowRunRepository(private val db: Database) : WorkflowRunRepository {
 
     override fun create(record: WorkflowRunRecord) {
-        transaction {
+        transaction(db) {
             WorkflowRunsTable.insert {
                 it[id] = record.id
                 it[workflowName] = record.workflowName
@@ -28,7 +29,7 @@ class ExposedWorkflowRunRepository : WorkflowRunRepository {
     }
 
     override fun findById(id: UUID): WorkflowRunRecord? {
-        return transaction {
+        return transaction(db) {
             WorkflowRunsTable.selectAll()
                 .where { WorkflowRunsTable.id eq id }
                 .map { it.toWorkflowRunRecord() }
@@ -37,7 +38,7 @@ class ExposedWorkflowRunRepository : WorkflowRunRepository {
     }
 
     override fun updateStatus(id: UUID, status: RunStatus) {
-        transaction {
+        transaction(db) {
             WorkflowRunsTable.update({ WorkflowRunsTable.id eq id }) {
                 it[WorkflowRunsTable.status] = status.name
             }
