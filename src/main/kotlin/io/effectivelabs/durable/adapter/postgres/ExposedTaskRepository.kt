@@ -4,9 +4,14 @@ import io.effectivelabs.durable.adapter.postgres.table.TasksTable
 import io.effectivelabs.durable.domain.model.TaskRecord
 import io.effectivelabs.durable.domain.model.TaskState
 import io.effectivelabs.durable.domain.port.TaskRepository
+import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.Op
+import org.jetbrains.exposed.sql.QueryBuilder
+import org.jetbrains.exposed.sql.QueryParameter
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.minus
+import org.jetbrains.exposed.sql.TextColumnType
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.selectAll
@@ -76,14 +81,14 @@ class ExposedTaskRepository(
 
     override fun decrementPendingParents(workflowRunId: UUID, completedParentName: String): List<TaskRecord> {
         return transaction(db) {
-            // Find PENDING tasks that list completedParentName as a parent
+            // Find PENDING tasks that list completedParentName as a parent using PostgreSQL's ANY() operator
             val candidates = table.selectAll()
                 .where {
                     (table.workflowRunId eq workflowRunId) and
-                        (table.status eq TaskState.PENDING.name)
+                        (table.status eq TaskState.PENDING.name) and
+                        elementInArray(completedParentName, table.parentNames)
                 }
                 .map { it.toTaskRecord() }
-                .filter { completedParentName in it.parentNames }
 
             if (candidates.isEmpty()) return@transaction emptyList()
 
@@ -121,6 +126,16 @@ class ExposedTaskRepository(
             readyTasks
         }
     }
+
+    private fun elementInArray(element: String, column: Column<List<String>>): Op<Boolean> =
+        object : Op<Boolean>() {
+            override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = queryBuilder {
+                append(QueryParameter(element, TextColumnType()))
+                append(" = ANY(")
+                append(column)
+                append(")")
+            }
+        }
 
     private fun ResultRow.toTaskRecord(): TaskRecord {
         return TaskRecord(
