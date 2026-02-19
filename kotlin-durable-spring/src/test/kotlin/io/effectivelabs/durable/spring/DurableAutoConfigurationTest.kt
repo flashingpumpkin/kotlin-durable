@@ -15,6 +15,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class DurableAutoConfigurationTest {
 
@@ -46,6 +47,22 @@ class DurableAutoConfigurationTest {
             assertNotNull(context.getBean(IdGenerator::class.java))
             assertNotNull(context.getBean(WorkflowRegistry::class.java))
             assertNotNull(context.getBean(DurableTaskEngine::class.java))
+        }
+    }
+
+    @Test
+    fun `schema initializer is not created when auto-create is false`() {
+        contextRunner
+            .withPropertyValues("durable.schema.auto-create=false")
+            .run { context ->
+                assertNull(context.getBeanNamesForType(SchemaInitializer::class.java).firstOrNull())
+            }
+    }
+
+    @Test
+    fun `schema initializer is not created when auto-create property is missing`() {
+        contextRunner.run { context ->
+            assertNull(context.getBeanNamesForType(SchemaInitializer::class.java).firstOrNull())
         }
     }
 }
