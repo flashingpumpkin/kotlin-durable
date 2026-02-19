@@ -9,7 +9,7 @@ class TasksTable(
     val workflowRunId = uuid("workflow_run_id").references(workflowRunsTable.id)
     val taskName = text("task_name")
     val status = text("status").default("PENDING")
-    val parentNames = text("parent_names").default("")
+    val parentNames = array<String>("parent_names").default(emptyList())
     val pendingParentCount = integer("pending_parent_count").default(0)
     val output = text("output").nullable()
     val error = text("error").nullable()

@@ -20,16 +20,13 @@ class ExposedTaskRepository(
 ) : TaskRepository {
 
     override fun createAll(records: List<TaskRecord>) {
-        records.forEach { record ->
-            require(',' !in record.taskName) { "Task name must not contain commas: '${record.taskName}'" }
-        }
         transaction(db) {
             val t = table
             t.batchInsert(records) { record ->
                 this[t.workflowRunId] = record.workflowRunId
                 this[t.taskName] = record.taskName
                 this[t.status] = record.status.name
-                this[t.parentNames] = record.parentNames.joinToString(",")
+                this[t.parentNames] = record.parentNames
                 this[t.pendingParentCount] = record.pendingParentCount
                 this[t.output] = record.output?.toString()
                 this[t.error] = record.error
@@ -79,8 +76,7 @@ class ExposedTaskRepository(
 
     override fun decrementPendingParents(workflowRunId: UUID, completedParentName: String): List<TaskRecord> {
         return transaction(db) {
-            // Find PENDING tasks that list completedParentName as a parent (in-memory filter
-            // ensures correctness with comma-separated parent_names)
+            // Find PENDING tasks that list completedParentName as a parent
             val candidates = table.selectAll()
                 .where {
                     (table.workflowRunId eq workflowRunId) and
@@ -127,12 +123,11 @@ class ExposedTaskRepository(
     }
 
     private fun ResultRow.toTaskRecord(): TaskRecord {
-        val parentNamesStr = this[table.parentNames]
         return TaskRecord(
             workflowRunId = this[table.workflowRunId],
             taskName = this[table.taskName],
             status = TaskState.valueOf(this[table.status]),
-            parentNames = if (parentNamesStr.isBlank()) emptyList() else parentNamesStr.split(","),
+            parentNames = this[table.parentNames],
             pendingParentCount = this[table.pendingParentCount],
             output = this[table.output],
             error = this[table.error],
