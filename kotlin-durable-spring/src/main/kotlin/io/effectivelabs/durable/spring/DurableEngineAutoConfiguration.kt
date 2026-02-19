@@ -56,7 +56,8 @@ open class DurableEngineAutoConfiguration {
     @Bean
     open fun durableTaskEngineLifecycle(
         durableTaskEngine: DurableTaskEngine,
+        @Value("\${durable.stop-timeout-seconds:30}") stopTimeoutSeconds: Long,
     ): DurableTaskEngineLifecycle {
-        return DurableTaskEngineLifecycle(durableTaskEngine)
+        return DurableTaskEngineLifecycle(durableTaskEngine, stopTimeoutSeconds)
     }
 }
