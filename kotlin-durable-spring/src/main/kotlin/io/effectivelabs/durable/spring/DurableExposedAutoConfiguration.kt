@@ -8,6 +8,11 @@ import io.effectivelabs.durable.adapter.postgres.ExposedTimerRepository
 import io.effectivelabs.durable.adapter.postgres.ExposedWorkflowRunRepository
 import io.effectivelabs.durable.adapter.postgres.RealScheduler
 import io.effectivelabs.durable.adapter.postgres.SystemClock
+import io.effectivelabs.durable.adapter.postgres.table.ReadyQueueTable
+import io.effectivelabs.durable.adapter.postgres.table.TaskEventsTable
+import io.effectivelabs.durable.adapter.postgres.table.TasksTable
+import io.effectivelabs.durable.adapter.postgres.table.TimersTable
+import io.effectivelabs.durable.adapter.postgres.table.WorkflowRunsTable
 import io.effectivelabs.durable.domain.port.Clock
 import io.effectivelabs.durable.domain.port.EventRepository
 import io.effectivelabs.durable.domain.port.IdGenerator
@@ -32,33 +37,63 @@ open class DurableExposedAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(WorkflowRunsTable::class)
+    open fun workflowRunsTable(): WorkflowRunsTable {
+        return WorkflowRunsTable()
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(TasksTable::class)
+    open fun tasksTable(workflowRunsTable: WorkflowRunsTable): TasksTable {
+        return TasksTable(workflowRunsTable)
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ReadyQueueTable::class)
+    open fun readyQueueTable(): ReadyQueueTable {
+        return ReadyQueueTable()
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(TaskEventsTable::class)
+    open fun taskEventsTable(): TaskEventsTable {
+        return TaskEventsTable()
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(TimersTable::class)
+    open fun timersTable(): TimersTable {
+        return TimersTable()
+    }
+
+    @Bean
     @ConditionalOnMissingBean(WorkflowRunRepository::class)
-    open fun workflowRunRepository(db: Database): WorkflowRunRepository {
-        return ExposedWorkflowRunRepository(db)
+    open fun workflowRunRepository(db: Database, table: WorkflowRunsTable): WorkflowRunRepository {
+        return ExposedWorkflowRunRepository(db, table)
     }
 
     @Bean
     @ConditionalOnMissingBean(TaskRepository::class)
-    open fun taskRepository(db: Database): TaskRepository {
-        return ExposedTaskRepository(db)
+    open fun taskRepository(db: Database, table: TasksTable): TaskRepository {
+        return ExposedTaskRepository(db, table)
     }
 
     @Bean
     @ConditionalOnMissingBean(ReadyQueueRepository::class)
-    open fun readyQueueRepository(db: Database): ReadyQueueRepository {
-        return ExposedReadyQueueRepository(db)
+    open fun readyQueueRepository(db: Database, table: ReadyQueueTable): ReadyQueueRepository {
+        return ExposedReadyQueueRepository(db, table)
     }
 
     @Bean
     @ConditionalOnMissingBean(EventRepository::class)
-    open fun eventRepository(db: Database): EventRepository {
-        return ExposedEventRepository(db)
+    open fun eventRepository(db: Database, table: TaskEventsTable): EventRepository {
+        return ExposedEventRepository(db, table)
     }
 
     @Bean
     @ConditionalOnMissingBean(TimerRepository::class)
-    open fun timerRepository(db: Database): TimerRepository {
-        return ExposedTimerRepository(db)
+    open fun timerRepository(db: Database, table: TimersTable): TimerRepository {
+        return ExposedTimerRepository(db, table)
     }
 
     @Bean

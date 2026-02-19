@@ -18,6 +18,12 @@ abstract class PostgresTestBase {
         private val username = System.getenv("TEST_POSTGRES_USER") ?: "durable"
         private val password = System.getenv("TEST_POSTGRES_PASSWORD") ?: "durable"
 
+        val workflowRunsTable = WorkflowRunsTable()
+        val tasksTable = TasksTable(workflowRunsTable)
+        val readyQueueTable = ReadyQueueTable()
+        val taskEventsTable = TaskEventsTable()
+        val timersTable = TimersTable()
+
         val db: Database by lazy {
             Database.connect(
                 url = jdbcUrl,
@@ -27,11 +33,11 @@ abstract class PostgresTestBase {
             ).also {
                 transaction {
                     SchemaUtils.create(
-                        WorkflowRunsTable,
-                        TasksTable,
-                        ReadyQueueTable,
-                        TaskEventsTable,
-                        TimersTable,
+                        workflowRunsTable,
+                        tasksTable,
+                        readyQueueTable,
+                        taskEventsTable,
+                        timersTable,
                     )
                 }
             }
@@ -44,11 +50,11 @@ abstract class PostgresTestBase {
 
     fun cleanTables() {
         transaction {
-            TaskEventsTable.deleteAll()
-            ReadyQueueTable.deleteAll()
-            TimersTable.deleteAll()
-            TasksTable.deleteAll()
-            WorkflowRunsTable.deleteAll()
+            taskEventsTable.deleteAll()
+            readyQueueTable.deleteAll()
+            timersTable.deleteAll()
+            tasksTable.deleteAll()
+            workflowRunsTable.deleteAll()
         }
     }
 }

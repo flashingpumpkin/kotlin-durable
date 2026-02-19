@@ -13,31 +13,35 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import java.util.UUID
 
-class ExposedTaskRepository(private val db: Database) : TaskRepository {
+class ExposedTaskRepository(
+    private val db: Database,
+    private val table: TasksTable = TasksTable(),
+) : TaskRepository {
 
     override fun createAll(records: List<TaskRecord>) {
         transaction(db) {
-            TasksTable.batchInsert(records) { record ->
-                this[TasksTable.workflowRunId] = record.workflowRunId
-                this[TasksTable.taskName] = record.taskName
-                this[TasksTable.status] = record.status.name
-                this[TasksTable.parentNames] = record.parentNames.joinToString(",")
-                this[TasksTable.pendingParentCount] = record.pendingParentCount
-                this[TasksTable.output] = record.output?.toString()
-                this[TasksTable.error] = record.error
-                this[TasksTable.retryCount] = record.retryCount
-                this[TasksTable.maxRetries] = record.maxRetries
-                this[TasksTable.createdAt] = record.createdAt
-                this[TasksTable.startedAt] = record.startedAt
-                this[TasksTable.completedAt] = record.completedAt
+            val t = table
+            t.batchInsert(records) { record ->
+                this[t.workflowRunId] = record.workflowRunId
+                this[t.taskName] = record.taskName
+                this[t.status] = record.status.name
+                this[t.parentNames] = record.parentNames.joinToString(",")
+                this[t.pendingParentCount] = record.pendingParentCount
+                this[t.output] = record.output?.toString()
+                this[t.error] = record.error
+                this[t.retryCount] = record.retryCount
+                this[t.maxRetries] = record.maxRetries
+                this[t.createdAt] = record.createdAt
+                this[t.startedAt] = record.startedAt
+                this[t.completedAt] = record.completedAt
             }
         }
     }
 
     override fun findByName(workflowRunId: UUID, taskName: String): TaskRecord? {
         return transaction(db) {
-            TasksTable.selectAll()
-                .where { (TasksTable.workflowRunId eq workflowRunId) and (TasksTable.taskName eq taskName) }
+            table.selectAll()
+                .where { (table.workflowRunId eq workflowRunId) and (table.taskName eq taskName) }
                 .map { it.toTaskRecord() }
                 .singleOrNull()
         }
@@ -45,8 +49,8 @@ class ExposedTaskRepository(private val db: Database) : TaskRepository {
 
     override fun findAllByWorkflowRunId(workflowRunId: UUID): List<TaskRecord> {
         return transaction(db) {
-            TasksTable.selectAll()
-                .where { TasksTable.workflowRunId eq workflowRunId }
+            table.selectAll()
+                .where { table.workflowRunId eq workflowRunId }
                 .map { it.toTaskRecord() }
         }
     }
@@ -59,12 +63,12 @@ class ExposedTaskRepository(private val db: Database) : TaskRepository {
         error: String?,
     ) {
         transaction(db) {
-            TasksTable.update({
-                (TasksTable.workflowRunId eq workflowRunId) and (TasksTable.taskName eq taskName)
+            table.update({
+                (table.workflowRunId eq workflowRunId) and (table.taskName eq taskName)
             }) {
-                it[TasksTable.status] = status.name
-                if (output != null) it[TasksTable.output] = output.toString()
-                if (error != null) it[TasksTable.error] = error
+                it[table.status] = status.name
+                if (output != null) it[table.output] = output.toString()
+                if (error != null) it[table.error] = error
             }
         }
     }
@@ -72,10 +76,10 @@ class ExposedTaskRepository(private val db: Database) : TaskRepository {
     override fun decrementPendingParents(workflowRunId: UUID, completedParentName: String): List<TaskRecord> {
         return transaction(db) {
             // Find all PENDING children that have completedParentName as a parent
-            val candidates = TasksTable.selectAll()
+            val candidates = table.selectAll()
                 .where {
-                    (TasksTable.workflowRunId eq workflowRunId) and
-                        (TasksTable.status eq TaskState.PENDING.name)
+                    (table.workflowRunId eq workflowRunId) and
+                        (table.status eq TaskState.PENDING.name)
                 }
                 .map { it.toTaskRecord() }
                 .filter { completedParentName in it.parentNames }
@@ -86,9 +90,9 @@ class ExposedTaskRepository(private val db: Database) : TaskRepository {
                 val newCount = task.pendingParentCount - 1
                 val newStatus = if (newCount == 0) TaskState.QUEUED else TaskState.PENDING
 
-                TasksTable.update({
-                    (TasksTable.workflowRunId eq workflowRunId) and
-                        (TasksTable.taskName eq task.taskName)
+                table.update({
+                    (table.workflowRunId eq workflowRunId) and
+                        (table.taskName eq task.taskName)
                 }) {
                     it[pendingParentCount] = newCount
                     it[status] = newStatus.name
@@ -104,20 +108,20 @@ class ExposedTaskRepository(private val db: Database) : TaskRepository {
     }
 
     private fun ResultRow.toTaskRecord(): TaskRecord {
-        val parentNamesStr = this[TasksTable.parentNames]
+        val parentNamesStr = this[table.parentNames]
         return TaskRecord(
-            workflowRunId = this[TasksTable.workflowRunId],
-            taskName = this[TasksTable.taskName],
-            status = TaskState.valueOf(this[TasksTable.status]),
+            workflowRunId = this[table.workflowRunId],
+            taskName = this[table.taskName],
+            status = TaskState.valueOf(this[table.status]),
             parentNames = if (parentNamesStr.isBlank()) emptyList() else parentNamesStr.split(","),
-            pendingParentCount = this[TasksTable.pendingParentCount],
-            output = this[TasksTable.output],
-            error = this[TasksTable.error],
-            retryCount = this[TasksTable.retryCount],
-            maxRetries = this[TasksTable.maxRetries],
-            createdAt = this[TasksTable.createdAt],
-            startedAt = this[TasksTable.startedAt],
-            completedAt = this[TasksTable.completedAt],
+            pendingParentCount = this[table.pendingParentCount],
+            output = this[table.output],
+            error = this[table.error],
+            retryCount = this[table.retryCount],
+            maxRetries = this[table.maxRetries],
+            createdAt = this[table.createdAt],
+            startedAt = this[table.startedAt],
+            completedAt = this[table.completedAt],
         )
     }
 }

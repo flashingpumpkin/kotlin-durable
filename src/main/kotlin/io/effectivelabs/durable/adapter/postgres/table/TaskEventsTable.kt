@@ -3,7 +3,7 @@ package io.effectivelabs.durable.adapter.postgres.table
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.javatime.timestamp
 
-object TaskEventsTable : Table("task_events") {
+class TaskEventsTable : Table("task_events") {
     val id = long("id").autoIncrement()
     val workflowRunId = uuid("workflow_run_id")
     val taskName = text("task_name")

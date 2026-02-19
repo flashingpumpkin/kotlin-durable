@@ -10,11 +10,14 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.UUID
 
-class ExposedEventRepository(private val db: Database) : EventRepository {
+class ExposedEventRepository(
+    private val db: Database,
+    private val table: TaskEventsTable = TaskEventsTable(),
+) : EventRepository {
 
     override fun append(event: TaskEvent) {
         transaction(db) {
-            TaskEventsTable.insert {
+            table.insert {
                 it[workflowRunId] = event.workflowRunId
                 it[taskName] = event.taskName
                 it[eventType] = event.eventType.name
@@ -26,17 +29,17 @@ class ExposedEventRepository(private val db: Database) : EventRepository {
 
     override fun findByWorkflowRunId(workflowRunId: UUID): List<TaskEvent> {
         return transaction(db) {
-            TaskEventsTable.selectAll()
-                .where { TaskEventsTable.workflowRunId eq workflowRunId }
-                .orderBy(TaskEventsTable.id)
+            table.selectAll()
+                .where { table.workflowRunId eq workflowRunId }
+                .orderBy(table.id)
                 .map { row ->
                     TaskEvent(
-                        id = row[TaskEventsTable.id],
-                        workflowRunId = row[TaskEventsTable.workflowRunId],
-                        taskName = row[TaskEventsTable.taskName],
-                        eventType = TaskEventType.valueOf(row[TaskEventsTable.eventType]),
-                        data = row[TaskEventsTable.data],
-                        timestamp = row[TaskEventsTable.timestamp],
+                        id = row[table.id],
+                        workflowRunId = row[table.workflowRunId],
+                        taskName = row[table.taskName],
+                        eventType = TaskEventType.valueOf(row[table.eventType]),
+                        data = row[table.data],
+                        timestamp = row[table.timestamp],
                     )
                 }
         }

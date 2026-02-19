@@ -12,11 +12,14 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import java.util.UUID
 
-class ExposedWorkflowRunRepository(private val db: Database) : WorkflowRunRepository {
+class ExposedWorkflowRunRepository(
+    private val db: Database,
+    private val table: WorkflowRunsTable = WorkflowRunsTable(),
+) : WorkflowRunRepository {
 
     override fun create(record: WorkflowRunRecord) {
         transaction(db) {
-            WorkflowRunsTable.insert {
+            table.insert {
                 it[id] = record.id
                 it[workflowName] = record.workflowName
                 it[tenantId] = record.tenantId
@@ -30,8 +33,8 @@ class ExposedWorkflowRunRepository(private val db: Database) : WorkflowRunReposi
 
     override fun findById(id: UUID): WorkflowRunRecord? {
         return transaction(db) {
-            WorkflowRunsTable.selectAll()
-                .where { WorkflowRunsTable.id eq id }
+            table.selectAll()
+                .where { table.id eq id }
                 .map { it.toWorkflowRunRecord() }
                 .singleOrNull()
         }
@@ -39,19 +42,19 @@ class ExposedWorkflowRunRepository(private val db: Database) : WorkflowRunReposi
 
     override fun updateStatus(id: UUID, status: RunStatus) {
         transaction(db) {
-            WorkflowRunsTable.update({ WorkflowRunsTable.id eq id }) {
-                it[WorkflowRunsTable.status] = status.name
+            table.update({ table.id eq id }) {
+                it[table.status] = status.name
             }
         }
     }
 
     private fun ResultRow.toWorkflowRunRecord() = WorkflowRunRecord(
-        id = this[WorkflowRunsTable.id],
-        workflowName = this[WorkflowRunsTable.workflowName],
-        tenantId = this[WorkflowRunsTable.tenantId],
-        status = RunStatus.valueOf(this[WorkflowRunsTable.status]),
-        input = this[WorkflowRunsTable.input],
-        createdAt = this[WorkflowRunsTable.createdAt],
-        completedAt = this[WorkflowRunsTable.completedAt],
+        id = this[table.id],
+        workflowName = this[table.workflowName],
+        tenantId = this[table.tenantId],
+        status = RunStatus.valueOf(this[table.status]),
+        input = this[table.input],
+        createdAt = this[table.createdAt],
+        completedAt = this[table.completedAt],
     )
 }

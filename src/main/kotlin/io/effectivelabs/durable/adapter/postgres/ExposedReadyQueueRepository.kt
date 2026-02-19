@@ -8,11 +8,14 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.Instant
 
-class ExposedReadyQueueRepository(private val db: Database) : ReadyQueueRepository {
+class ExposedReadyQueueRepository(
+    private val db: Database,
+    private val table: ReadyQueueTable = ReadyQueueTable(),
+) : ReadyQueueRepository {
 
     override fun enqueue(item: QueueItem) {
         transaction(db) {
-            ReadyQueueTable.insert {
+            table.insert {
                 it[workflowRunId] = item.workflowRunId
                 it[taskName] = item.taskName
                 it[enqueuedAt] = item.enqueuedAt
@@ -23,7 +26,7 @@ class ExposedReadyQueueRepository(private val db: Database) : ReadyQueueReposito
     override fun enqueueAll(items: List<QueueItem>) {
         transaction(db) {
             for (item in items) {
-                ReadyQueueTable.insert {
+                table.insert {
                     it[workflowRunId] = item.workflowRunId
                     it[taskName] = item.taskName
                     it[enqueuedAt] = item.enqueuedAt
@@ -39,14 +42,14 @@ class ExposedReadyQueueRepository(private val db: Database) : ReadyQueueReposito
             val sql = """
                 WITH claimed AS (
                     SELECT id, workflow_run_id, task_name, enqueued_at
-                    FROM ready_queue
+                    FROM ${table.tableName}
                     ORDER BY id ASC
                     FOR UPDATE SKIP LOCKED
                     LIMIT ?
                 )
-                DELETE FROM ready_queue
+                DELETE FROM ${table.tableName}
                 USING claimed
-                WHERE ready_queue.id = claimed.id
+                WHERE ${table.tableName}.id = claimed.id
                 RETURNING claimed.id, claimed.workflow_run_id, claimed.task_name, claimed.enqueued_at
             """.trimIndent()
 

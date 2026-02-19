@@ -3,7 +3,7 @@ package io.effectivelabs.durable.adapter.postgres.table
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.javatime.timestamp
 
-object WorkflowRunsTable : Table("workflow_runs") {
+class WorkflowRunsTable : Table("workflow_runs") {
     val id = uuid("id")
     val workflowName = text("workflow_name")
     val tenantId = text("tenant_id")
