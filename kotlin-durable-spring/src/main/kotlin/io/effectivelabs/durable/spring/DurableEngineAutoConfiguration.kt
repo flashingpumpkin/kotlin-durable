@@ -52,4 +52,12 @@ open class DurableEngineAutoConfiguration {
             batchSize = batchSize,
         )
     }
+
+    @Bean
+    open fun durableTaskEngineLifecycle(
+        durableTaskEngine: DurableTaskEngine,
+        @Value("\${durable.stop-timeout-seconds:30}") stopTimeoutSeconds: Long,
+    ): DurableTaskEngineLifecycle {
+        return DurableTaskEngineLifecycle(durableTaskEngine, stopTimeoutSeconds)
+    }
 }
