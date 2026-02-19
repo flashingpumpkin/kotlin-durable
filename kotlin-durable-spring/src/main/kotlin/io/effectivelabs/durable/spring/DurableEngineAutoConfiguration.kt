@@ -52,4 +52,11 @@ open class DurableEngineAutoConfiguration {
             batchSize = batchSize,
         )
     }
+
+    @Bean
+    open fun durableTaskEngineLifecycle(
+        durableTaskEngine: DurableTaskEngine,
+    ): DurableTaskEngineLifecycle {
+        return DurableTaskEngineLifecycle(durableTaskEngine)
+    }
 }
