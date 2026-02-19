@@ -22,12 +22,17 @@ import io.effectivelabs.durable.domain.port.TaskRepository
 import io.effectivelabs.durable.domain.port.TimerRepository
 import io.effectivelabs.durable.domain.port.WorkflowRunRepository
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import javax.sql.DataSource
 
 @AutoConfiguration
+@EnableConfigurationProperties(DurableProperties::class)
 open class DurableExposedAutoConfiguration {
 
     @Bean
@@ -112,5 +117,30 @@ open class DurableExposedAutoConfiguration {
     @ConditionalOnMissingBean(IdGenerator::class)
     open fun idGenerator(): IdGenerator {
         return ExposedIdGenerator()
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        prefix = "durable.schema",
+        name = ["auto-create"],
+        havingValue = "true",
+        matchIfMissing = false
+    )
+    open fun schemaInitializer(
+        db: Database,
+        workflowRunsTable: WorkflowRunsTable,
+        tasksTable: TasksTable,
+        readyQueueTable: ReadyQueueTable,
+        taskEventsTable: TaskEventsTable,
+        timersTable: TimersTable,
+    ): SchemaInitializer {
+        return SchemaInitializer(
+            db,
+            workflowRunsTable,
+            tasksTable,
+            readyQueueTable,
+            taskEventsTable,
+            timersTable,
+        )
     }
 }
