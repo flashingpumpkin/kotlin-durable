@@ -7,7 +7,6 @@ import io.effectivelabs.durable.adapter.postgres.table.TimersTable
 import io.effectivelabs.durable.adapter.postgres.table.WorkflowRunsTable
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.deleteAll
 import org.jetbrains.exposed.sql.transactions.transaction
 
 abstract class PostgresTestBase {
@@ -50,11 +49,20 @@ abstract class PostgresTestBase {
 
     fun cleanTables() {
         transaction {
-            taskEventsTable.deleteAll()
-            readyQueueTable.deleteAll()
-            timersTable.deleteAll()
-            tasksTable.deleteAll()
-            workflowRunsTable.deleteAll()
+            SchemaUtils.drop(
+                timersTable,
+                taskEventsTable,
+                readyQueueTable,
+                tasksTable,
+                workflowRunsTable,
+            )
+            SchemaUtils.create(
+                workflowRunsTable,
+                tasksTable,
+                readyQueueTable,
+                taskEventsTable,
+                timersTable,
+            )
         }
     }
 }
