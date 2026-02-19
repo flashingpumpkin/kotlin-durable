@@ -6,6 +6,8 @@ import io.effectivelabs.durable.domain.model.TaskState
 import io.effectivelabs.durable.domain.model.WorkflowRunRecord
 import java.time.Instant
 import java.util.UUID
+import java.util.Collections
+import java.util.concurrent.CountDownLatch
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -137,5 +139,40 @@ class ExposedTaskRepositoryTest : PostgresTestBase() {
         assertEquals(1, readyAfterB.size)
         assertEquals("c", readyAfterB[0].taskName)
         assertEquals(TaskState.QUEUED, readyAfterB[0].status)
+    }
+
+    @Test
+    fun `decrementPendingParents concurrent fan-in results in exactly one QUEUED`() {
+        // Two threads complete parents "a" and "b" simultaneously for fan-in task "c".
+        // Exactly one caller must see "c" transition to QUEUED.
+        repo.createAll(
+            listOf(
+                taskRecord("a", status = TaskState.COMPLETED),
+                taskRecord("b", status = TaskState.COMPLETED),
+                taskRecord("c", parentNames = listOf("a", "b"), pendingParentCount = 2),
+            )
+        )
+
+        val allReady = Collections.synchronizedList(mutableListOf<TaskRecord>())
+        val latch = CountDownLatch(1)
+
+        val t1 = Thread {
+            latch.await()
+            allReady.addAll(repo.decrementPendingParents(workflowRunId, "a"))
+        }
+        val t2 = Thread {
+            latch.await()
+            allReady.addAll(repo.decrementPendingParents(workflowRunId, "b"))
+        }
+
+        t1.start()
+        t2.start()
+        latch.countDown()
+        t1.join()
+        t2.join()
+
+        assertEquals(1, allReady.size)
+        assertEquals("c", allReady[0].taskName)
+        assertEquals(TaskState.QUEUED, allReady[0].status)
     }
 }

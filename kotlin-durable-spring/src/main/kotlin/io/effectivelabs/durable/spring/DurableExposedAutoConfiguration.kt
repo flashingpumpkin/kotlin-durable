@@ -1,7 +1,7 @@
 package io.effectivelabs.durable.spring
 
 import io.effectivelabs.durable.adapter.postgres.ExposedEventRepository
-import io.effectivelabs.durable.adapter.postgres.ExposedIdGenerator
+import io.effectivelabs.durable.adapter.postgres.NoOpIdGenerator
 import io.effectivelabs.durable.adapter.postgres.ExposedReadyQueueRepository
 import io.effectivelabs.durable.adapter.postgres.ExposedTaskRepository
 import io.effectivelabs.durable.adapter.postgres.ExposedTimerRepository
@@ -114,7 +114,7 @@ open class DurableExposedAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(IdGenerator::class)
     open fun idGenerator(): IdGenerator {
-        return ExposedIdGenerator()
+        return NoOpIdGenerator()
     }
 
     @Bean

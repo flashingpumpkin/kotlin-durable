@@ -6,12 +6,15 @@ import io.effectivelabs.durable.domain.model.TaskState
 import io.effectivelabs.durable.domain.port.TaskRepository
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.minus
+import org.jetbrains.exposed.sql.TextColumnType
+import org.jetbrains.exposed.sql.UUIDColumnType
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.batchInsert
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.statements.StatementType
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import java.sql.ResultSet
 import java.util.UUID
 
 class ExposedTaskRepository(
@@ -76,50 +79,51 @@ class ExposedTaskRepository(
 
     override fun decrementPendingParents(workflowRunId: UUID, completedParentName: String): List<TaskRecord> {
         return transaction(db) {
-            // Find PENDING tasks that list completedParentName as a parent
-            val candidates = table.selectAll()
-                .where {
-                    (table.workflowRunId eq workflowRunId) and
-                        (table.status eq TaskState.PENDING.name)
-                }
-                .map { it.toTaskRecord() }
-                .filter { completedParentName in it.parentNames }
+            val sql = """
+                UPDATE tasks
+                SET pending_parent_count = pending_parent_count - 1,
+                    status = CASE WHEN pending_parent_count - 1 = 0 THEN 'QUEUED' ELSE status END
+                WHERE workflow_run_id = ?
+                  AND status = 'PENDING'
+                  AND ? = ANY(parent_names)
+                RETURNING workflow_run_id, task_name, status, parent_names,
+                          pending_parent_count, output, error, retry_count, max_retries,
+                          created_at, started_at, completed_at
+            """.trimIndent()
 
-            if (candidates.isEmpty()) return@transaction emptyList()
-
-            val readyTasks = mutableListOf<TaskRecord>()
-
-            for (task in candidates) {
-                // Atomically decrement using a SQL expression to avoid read-modify-write race
-                table.update({
-                    (table.workflowRunId eq workflowRunId) and (table.taskName eq task.taskName)
-                }) {
-                    it[pendingParentCount] = table.pendingParentCount - 1
-                }
-
-                // If the task now has no remaining parents, mark it QUEUED
-                table.update({
-                    (table.workflowRunId eq workflowRunId) and
-                        (table.taskName eq task.taskName) and
-                        (table.pendingParentCount eq 0)
-                }) {
-                    it[status] = TaskState.QUEUED.name
-                }
-
-                val updated = table.selectAll()
-                    .where {
-                        (table.workflowRunId eq workflowRunId) and
-                            (table.taskName eq task.taskName) and
-                            (table.status eq TaskState.QUEUED.name)
+            exec(
+                sql,
+                args = listOf(UUIDColumnType() to workflowRunId, TextColumnType() to completedParentName),
+                explicitStatementType = StatementType.EXEC,
+            ) { rs ->
+                val tasks = mutableListOf<TaskRecord>()
+                while (rs.next()) {
+                    if (rs.getString("status") == TaskState.QUEUED.name) {
+                        tasks.add(rs.toTaskRecord())
                     }
-                    .map { it.toTaskRecord() }
-                    .singleOrNull()
-
-                if (updated != null) readyTasks.add(updated)
-            }
-
-            readyTasks
+                }
+                tasks
+            } ?: emptyList()
         }
+    }
+
+    private fun ResultSet.toTaskRecord(): TaskRecord {
+        @Suppress("UNCHECKED_CAST")
+        val parentNames = (getArray("parent_names").array as Array<*>).map { it.toString() }
+        return TaskRecord(
+            workflowRunId = UUID.fromString(getString("workflow_run_id")),
+            taskName = getString("task_name"),
+            status = TaskState.valueOf(getString("status")),
+            parentNames = parentNames,
+            pendingParentCount = getInt("pending_parent_count"),
+            output = getString("output"),
+            error = getString("error"),
+            retryCount = getInt("retry_count"),
+            maxRetries = getInt("max_retries"),
+            createdAt = getTimestamp("created_at").toInstant(),
+            startedAt = getTimestamp("started_at")?.toInstant(),
+            completedAt = getTimestamp("completed_at")?.toInstant(),
+        )
     }
 
     private fun ResultRow.toTaskRecord(): TaskRecord {

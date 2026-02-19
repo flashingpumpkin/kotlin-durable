@@ -48,7 +48,7 @@ class ExposedReadyQueueRepository(
                 RETURNING claimed.id, claimed.workflow_run_id, claimed.task_name, claimed.enqueued_at
             """.trimIndent()
 
-            exec(sql, args = listOf(IntegerColumnType() to batchSize), explicitStatementType = StatementType.SELECT) { rs ->
+            exec(sql, args = listOf(IntegerColumnType() to batchSize), explicitStatementType = StatementType.EXEC) { rs ->
                 val items = mutableListOf<QueueItem>()
                 while (rs.next()) {
                     items.add(

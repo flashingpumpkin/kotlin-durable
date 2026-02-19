@@ -23,7 +23,7 @@ class PostgresLinearDagTest : PostgresTestBase() {
             workflowRegistry = InMemoryWorkflowRegistry(),
             clock = SystemClock(),
             scheduler = RealScheduler(),
-            idGenerator = ExposedIdGenerator(),
+            idGenerator = NoOpIdGenerator(),
             pollIntervalMs = 50,
             batchSize = 10,
         )
