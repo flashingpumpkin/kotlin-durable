@@ -22,8 +22,6 @@ import io.effectivelabs.durable.domain.port.TaskRepository
 import io.effectivelabs.durable.domain.port.TimerRepository
 import io.effectivelabs.durable.domain.port.WorkflowRunRepository
 import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.SchemaUtils
-import org.jetbrains.exposed.sql.transactions.transaction
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
