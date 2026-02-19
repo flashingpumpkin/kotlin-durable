@@ -22,7 +22,7 @@ class SchemaInitializer(
     @PostConstruct
     fun initializeSchema() {
         transaction(db) {
-            SchemaUtils.create(
+            SchemaUtils.createMissingTablesAndColumns(
                 workflowRunsTable,
                 tasksTable,
                 readyQueueTable,
