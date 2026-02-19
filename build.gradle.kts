@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "2.3.10"
+    kotlin("plugin.spring") version "2.3.10" apply false
 }
 
 group = "io.effectivelabs"
